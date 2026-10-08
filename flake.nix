@@ -142,7 +142,10 @@
         };
 
         fakeMultiArchToolchain = mkOsxcross {
-          macosSdk = fakeMacosSdk;
+          macosSdk = mkMacosSdk {
+            sdkArchive = fakeSdkArchive;
+            sdkVersion = "26.1";
+          };
           enableArchs = ["x86_64" "arm64"];
           enableLTO = false;
         };
@@ -258,6 +261,21 @@
             '';
           }
           // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
+            osxcross-deployment-target = pkgs.runCommand "check-osxcross-deployment-target" {} ''
+              for arch in x86_64 arm64; do
+                for compiler in clang clang++; do
+                  "${fakeMultiArchToolchain}/bin/$arch-apple-${fakeMultiArchToolchain.darwinTarget}-$compiler" \
+                    -mmacosx-version-min=14.0 -x c -fsyntax-only -### /dev/null \
+                    > command 2>&1
+                  grep -- "\"-triple\" \"$arch-apple-macosx14.0.0\"" command
+                  if grep -E 'cannot find clang intrinsic headers|Your clang installation is outdated' command; then
+                    exit 1
+                  fi
+                done
+              done
+              touch "$out"
+            '';
+
             osxcross-cmake-architecture = pkgs.runCommand "check-osxcross-cmake-architecture" {} ''
               export PATH="${cmakeHostProbe}/bin:$PATH"
               unset OSXCROSS_HOST

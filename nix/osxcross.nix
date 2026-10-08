@@ -208,15 +208,24 @@ in
       # Copy libraries
       ${libCopyCommands}
 
-      # Copy and wrap the wrapper binary to include unwrapped clang in PATH
-      # We use clang-unwrapped to avoid Nix's cc-wrapper intercepting linker calls
+      # Keep unwrapped Clang's split resource output beside its launchers so
+      # OSXCross can discover intrinsic headers and the compiler version.
+      # Regular launcher files preserve this layout when realPath resolves them.
+      mkdir -p "$out/libexec/clang"/{bin,lib}
+      ln -s "${lib.getLib llvmPackages.clang-unwrapped}/lib/clang" "$out/libexec/clang/lib/clang"
+      for compiler in clang clang++; do
+        makeWrapper "${llvmPackages.clang-unwrapped}/bin/$compiler" \
+          "$out/libexec/clang/bin/$compiler"
+      done
+
+      # Use unwrapped Clang to avoid Nix's cc-wrapper intercepting linker calls.
       for wrapperBin in "${wrapper}"/bin/*-wrapper; do
         binName=$(basename "$wrapperBin")
         cp "$wrapperBin" "$out/bin/$binName"
         wrapProgram "$out/bin/$binName" \
           --set-default OSXCROSS_SDK "${sdkRoot}" \
           --set-default OSXCROSS_SDKROOT "${sdkRoot}" \
-          --prefix PATH : "${llvmPackages.clang-unwrapped}/bin:$out/bin"
+          --prefix PATH : "$out/libexec/clang/bin:$out/bin"
       done
 
       # Create tool symlinks
