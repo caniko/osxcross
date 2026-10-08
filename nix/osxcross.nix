@@ -96,7 +96,7 @@
     #!/usr/bin/env bash
     # OSXCross CMake wrapper
     OSXCROSS_TARGET_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-    OSXCROSS_HOST="${primaryArch}-apple-${darwinTarget}"
+    OSXCROSS_HOST="''${OSXCROSS_HOST:-${primaryArch}-apple-${darwinTarget}}"
     OSXCROSS_TARGET="${darwinTarget}"
     OSXCROSS_SDK="${sdkRoot}"
     OSXCROSS_SDKROOT="${sdkRoot}"

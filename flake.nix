@@ -34,11 +34,13 @@
           sdkVersion,
           sdkRoot ? "${sdk}/MacOSX${sdkVersion}.sdk",
         }:
-          assert sdkVersion != null && builtins.isString sdkVersion
-            || throw "osxcross: mkMacosSdkRef 'sdkVersion' must be a string";
-          assert builtins.stringLength sdkVersion > 0
-            || throw "osxcross: mkMacosSdkRef 'sdkVersion' must not be empty";
-          {
+          assert sdkVersion
+          != null
+          && builtins.isString sdkVersion
+          || throw "osxcross: mkMacosSdkRef 'sdkVersion' must be a string";
+          assert builtins.stringLength sdkVersion
+          > 0
+          || throw "osxcross: mkMacosSdkRef 'sdkVersion' must not be empty"; {
             _type = "osxcross-macos-sdk";
             inherit sdk sdkVersion;
             sdkRoot = toString sdkRoot;
@@ -116,15 +118,16 @@
           JSON
         '';
 
-        fakeSdkArchive = pkgs.runCommand "fake-MacOSX26.1.sdk.tar" {
-          nativeBuildInputs = [pkgs.gnutar];
-        } ''
-          mkdir -p MacOSX26.1.sdk/usr/include/c++/v1
-          cat > MacOSX26.1.sdk/SDKSettings.json <<'JSON'
-          {"Version":"26.1"}
-          JSON
-          tar cf "$out" MacOSX26.1.sdk
-        '';
+        fakeSdkArchive =
+          pkgs.runCommand "fake-MacOSX26.1.sdk.tar" {
+            nativeBuildInputs = [pkgs.gnutar];
+          } ''
+            mkdir -p MacOSX26.1.sdk/usr/include/c++/v1
+            cat > MacOSX26.1.sdk/SDKSettings.json <<'JSON'
+            {"Version":"26.1"}
+            JSON
+            tar cf "$out" MacOSX26.1.sdk
+          '';
 
         fakeMacosSdk = mkMacosSdkRef {
           sdk = fakeSdkRoot;
@@ -137,6 +140,16 @@
           enableArchs = ["x86_64"];
           enableLTO = false;
         };
+
+        fakeMultiArchToolchain = mkOsxcross {
+          macosSdk = fakeMacosSdk;
+          enableArchs = ["x86_64" "arm64"];
+          enableLTO = false;
+        };
+
+        cmakeHostProbe = pkgs.writeShellScriptBin "cmake" ''
+          test "$OSXCROSS_HOST" = "$EXPECTED_OSXCROSS_HOST"
+        '';
       in {
         # Package outputs
         packages = {
@@ -223,9 +236,8 @@
               touch "$out"
             '';
 
-            macos-sdk-ref-direct-root =
-              assert fakeMacosSdk.sdkRoot == toString fakeSdkRoot;
-                pkgs.runCommand "check-macos-sdk-ref-direct-root" {} "touch $out";
+            macos-sdk-ref-direct-root = assert fakeMacosSdk.sdkRoot == toString fakeSdkRoot;
+              pkgs.runCommand "check-macos-sdk-ref-direct-root" {} "touch $out";
 
             mkosxcross-requires-macos-sdk = let
               missingSdk = builtins.tryEval ((mkOsxcross {
@@ -246,6 +258,22 @@
             '';
           }
           // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
+            osxcross-cmake-architecture = pkgs.runCommand "check-osxcross-cmake-architecture" {} ''
+              export PATH="${cmakeHostProbe}/bin:$PATH"
+              unset OSXCROSS_HOST
+
+              EXPECTED_OSXCROSS_HOST=x86_64-apple-${fakeMultiArchToolchain.darwinTarget} \
+                "${fakeMultiArchToolchain}/bin/osxcross-cmake"
+              EXPECTED_OSXCROSS_HOST=x86_64-apple-${fakeMultiArchToolchain.darwinTarget} \
+                "${fakeMultiArchToolchain}/bin/x86_64-apple-${fakeMultiArchToolchain.darwinTarget}-cmake"
+              EXPECTED_OSXCROSS_HOST=arm64-apple-${fakeMultiArchToolchain.darwinTarget} \
+                "${fakeMultiArchToolchain}/bin/arm64-apple-${fakeMultiArchToolchain.darwinTarget}-cmake"
+              EXPECTED_OSXCROSS_HOST=arm64-apple-${fakeMultiArchToolchain.darwinTarget} \
+                OSXCROSS_HOST=arm64-apple-${fakeMultiArchToolchain.darwinTarget} \
+                "${fakeMultiArchToolchain}/bin/osxcross-cmake"
+              touch "$out"
+            '';
+
             osxcross-direct-sdk-root = pkgs.runCommand "check-osxcross-direct-sdk-root" {} ''
               test ! -e "${fakeToolchain}/SDK"
               test ! -L "${fakeToolchain}/SDK"
@@ -296,11 +324,13 @@
           sdkVersion,
           sdkRoot ? "${sdk}/MacOSX${sdkVersion}.sdk",
         }:
-          assert sdkVersion != null && builtins.isString sdkVersion
-            || throw "osxcross: mkMacosSdkRef 'sdkVersion' must be a string";
-          assert builtins.stringLength sdkVersion > 0
-            || throw "osxcross: mkMacosSdkRef 'sdkVersion' must not be empty";
-          {
+          assert sdkVersion
+          != null
+          && builtins.isString sdkVersion
+          || throw "osxcross: mkMacosSdkRef 'sdkVersion' must be a string";
+          assert builtins.stringLength sdkVersion
+          > 0
+          || throw "osxcross: mkMacosSdkRef 'sdkVersion' must not be empty"; {
             _type = "osxcross-macos-sdk";
             inherit sdk sdkVersion;
             sdkRoot = toString sdkRoot;
